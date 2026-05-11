@@ -1,7 +1,7 @@
 import os
 
 
-def create_readme(path: str, folder: str, problem: dict, tests: list):
+def create_readme(path: str, folder: str, problem: dict, tests: list, lang):
     title = problem.get("name", "Problem")
     url = problem.get("url", "")
     raw_group = problem.get("group", "")
@@ -17,17 +17,7 @@ def create_readme(path: str, folder: str, problem: dict, tests: list):
         "",
         "---",
         "",
-        "## Run",
-        "",
-        "### From repo root:",
-        "```bash",
-        f"cargo run -p {folder} < problems/{folder}/tests/1.in",
-        "```",
-        "",
-        "### Diff against expected output:",
-        "```bash",
-        f"cargo run -p {folder} < problems/{folder}/tests/1.in | diff - problems/{folder}/tests/1.out",
-        "```",
+        *lang.readme_commands(folder),
         "",
         "---",
         "",

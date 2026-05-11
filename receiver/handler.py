@@ -5,11 +5,12 @@ from http.server import BaseHTTPRequestHandler
 
 from config import PROBLEMS_DIR
 from utils import safe_name
-from project import create_rust_project
 from readme import create_readme
 
 
 class Handler(BaseHTTPRequestHandler):
+    language = None  # set by make_handler() in main.py
+
     def do_POST(self):
         try:
             length = int(self.headers["Content-Length"])
@@ -27,10 +28,10 @@ class Handler(BaseHTTPRequestHandler):
             parts = [p for p in [group, name] if p]
             folder = re.sub(r"_+", "_", "_".join(parts)).strip("_")
 
-            path = os.path.join(PROBLEMS_DIR, folder)
+            path = os.path.join(PROBLEMS_DIR, self.language.SUBDIR, folder)
             os.makedirs(path, exist_ok=True)
 
-            create_rust_project(path, folder)
+            self.language.create_project(path, folder)
 
             # Save each sample as tests/N.in and tests/N.out
             tests = problem.get("tests", [])
@@ -46,7 +47,7 @@ class Handler(BaseHTTPRequestHandler):
             with open(os.path.join(path, "meta.json"), "w", encoding="utf-8") as f:
                 json.dump(problem, f, indent=2)
 
-            create_readme(path, folder, problem, tests)
+            create_readme(path, folder, problem, tests, self.language)
 
             print(f"[✓] Created: {folder}  ({problem.get('name', '')})")
             print(f"[✓] Path:    {path}")

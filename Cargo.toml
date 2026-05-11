@@ -1,3 +1,3 @@
 [workspace]
-members = ["problems/*"]
+members = ["problems/rust/*"]
 resolver = "2"
