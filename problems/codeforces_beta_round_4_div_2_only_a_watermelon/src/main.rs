@@ -14,7 +14,11 @@ fn solve(input: String) {
     let mut it = input.split_whitespace();
 
     // Example: read first number if needed
-    // let n: i32 = it.next().unwrap().parse().unwrap();
+    let n: i32 = it.next().unwrap().parse().unwrap();
 
-    println!("{}", input);
+    if n % 2 == 0 && n > 2 {
+        println!("YES");
+    } else {
+        println!("NO");
+    }
 }
