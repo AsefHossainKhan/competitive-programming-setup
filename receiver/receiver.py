@@ -2,6 +2,8 @@ import json
 import os
 import re
 import shutil
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # Always resolve paths relative to this script file, regardless of CWD.
@@ -40,6 +42,58 @@ edition = "2021"
             f.write('fn main() { println!("Hello"); }\n')
 
 
+def create_readme(path: str, folder: str, problem: dict, tests: list):
+    title = problem.get("name", "Problem")
+    url = problem.get("url", "")
+    raw_group = problem.get("group", "")
+    time_limit = problem.get("timeLimit", "?")
+    memory_limit = problem.get("memoryLimit", "?")
+
+    lines = [
+        f"# {title}",
+        "",
+        f"**Contest:** {raw_group}  ",
+        f"**Problem:** [{title}]({url})  " if url else "",
+        f"**Limits:** {time_limit} ms / {memory_limit} MB  ",
+        "",
+        "---",
+        "",
+        "## Run",
+        "",
+        "```bash",
+        "# From repo root:",
+        f"cargo run -p {folder} < problems/{folder}/tests/1.in",
+        "",
+        "# Diff against expected output:",
+        f"cargo run -p {folder} < problems/{folder}/tests/1.in | diff - problems/{folder}/tests/1.out",
+        "```",
+        "",
+        "---",
+        "",
+        "## Sample Tests",
+        "",
+    ]
+
+    for i, test in enumerate(tests, start=1):
+        lines += [
+            f"### Sample {i}",
+            "",
+            "**Input:**",
+            "```",
+            test.get("input", "").strip(),
+            "```",
+            "",
+            "**Expected Output:**",
+            "```",
+            test.get("output", "").strip(),
+            "```",
+            "",
+        ]
+
+    with open(os.path.join(path, "README.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
@@ -69,17 +123,15 @@ class Handler(BaseHTTPRequestHandler):
                 tests_dir = os.path.join(path, "tests")
                 os.makedirs(tests_dir, exist_ok=True)
                 for i, test in enumerate(tests, start=1):
-                    with open(
-                        os.path.join(tests_dir, f"{i}.in"), "w", encoding="utf-8"
-                    ) as f:
+                    with open(os.path.join(tests_dir, f"{i}.in"), "w", encoding="utf-8") as f:
                         f.write(test.get("input", ""))
-                    with open(
-                        os.path.join(tests_dir, f"{i}.out"), "w", encoding="utf-8"
-                    ) as f:
+                    with open(os.path.join(tests_dir, f"{i}.out"), "w", encoding="utf-8") as f:
                         f.write(test.get("output", ""))
 
             with open(os.path.join(path, "meta.json"), "w", encoding="utf-8") as f:
                 json.dump(problem, f, indent=2)
+
+            create_readme(path, folder, problem, tests)
 
             print(f"[✓] Created: {folder}  ({problem.get('name', '')})")
             print(f"[✓] Path:    {path}")
@@ -95,9 +147,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(
-                json.dumps({"status": "error", "message": str(e)}).encode()
-            )
+            self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode())
 
     def log_message(self, format, *args):
         pass  # Suppress default per-request HTTP log noise
@@ -108,10 +158,20 @@ if __name__ == "__main__":
     print(f"[i] PROBLEMS_DIR: {PROBLEMS_DIR}")
     server = HTTPServer(("127.0.0.1", 10043), Handler)
     print("[i] Listening on http://127.0.0.1:10043  (Ctrl+C to stop)")
+
+    # Run server in a daemon thread so the main thread stays free to catch
+    # Ctrl+C — Git Bash on Windows can't interrupt Python's select() directly.
+    thread = threading.Thread(target=server.serve_forever)
+    thread.daemon = True
+    thread.start()
+
     try:
-        server.serve_forever()
+        while True:
+            time.sleep(0.5)
     except KeyboardInterrupt:
         pass
     finally:
+        server.shutdown()
         server.server_close()
         print("\n[i] Server stopped.")
+
