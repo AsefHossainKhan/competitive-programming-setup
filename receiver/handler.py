@@ -3,8 +3,8 @@ import os
 import re
 from http.server import BaseHTTPRequestHandler
 
-from config import PROBLEMS_DIR
-from utils import safe_name
+from config import PROBLEMS_DIR, USE_PROBLEM_CODE_AS_FOLDER
+from utils import safe_name, extract_platform, extract_problem_code, platform_prefix
 from readme import create_readme
 
 
@@ -18,15 +18,22 @@ class Handler(BaseHTTPRequestHandler):
             problem = json.loads(data.decode())
 
             # Competitive Companion sends "group" as "Platform - Contest Name"
-            # Strip the platform prefix (everything up to and including " - ")
             raw_group = problem.get("group", "")
-            if " - " in raw_group:
-                raw_group = raw_group.split(" - ", 1)[1]
-            group = safe_name(raw_group)
-            name = safe_name(problem.get("name", "problem"))
+            platform = extract_platform(raw_group)
+            problem_name = problem.get("name", "problem")
+            url = problem.get("url", "")
+            problem_code = extract_problem_code(platform, problem_name, url)
 
-            parts = [p for p in [group, name] if p]
-            folder = re.sub(r"_+", "_", "_".join(parts)).strip("_")
+            # Strip the platform prefix to get only the contest name
+            contest_part = raw_group.split(" - ", 1)[1] if " - " in raw_group else raw_group
+            group = safe_name(contest_part)
+            name = safe_name(problem_name)
+
+            if USE_PROBLEM_CODE_AS_FOLDER and problem_code:
+                folder = safe_name(problem_code, digit_prefix=platform_prefix(platform))
+            else:
+                parts = [p for p in [group, name] if p]
+                folder = re.sub(r"_+", "_", "_".join(parts)).strip("_")
 
             path = os.path.join(PROBLEMS_DIR, self.language.SUBDIR, folder)
             os.makedirs(path, exist_ok=True)
@@ -47,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
             with open(os.path.join(path, "meta.json"), "w", encoding="utf-8") as f:
                 json.dump(problem, f, indent=2)
 
-            create_readme(path, folder, problem, tests, self.language)
+            create_readme(path, folder, problem, tests, self.language, platform, problem_code)
 
             print(f"[✓] Created: {folder}  ({problem.get('name', '')})")
             print(f"[✓] Path:    {path}")
