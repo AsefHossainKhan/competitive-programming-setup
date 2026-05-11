@@ -8,11 +8,13 @@
 
 ## Run
 
+### From repo root:
 ```bash
-# From repo root:
 cargo run -p codeforces_beta_round_4_div_2_only_a_watermelon < problems/codeforces_beta_round_4_div_2_only_a_watermelon/tests/1.in
+```
 
-# Diff against expected output:
+### Diff against expected output:
+```bash
 cargo run -p codeforces_beta_round_4_div_2_only_a_watermelon < problems/codeforces_beta_round_4_div_2_only_a_watermelon/tests/1.in | diff - problems/codeforces_beta_round_4_div_2_only_a_watermelon/tests/1.out
 ```
 
